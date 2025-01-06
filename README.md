@@ -17,7 +17,7 @@ A macOS application that allows you to easily manage and switch between differen
 
 ## Installation
 
-1. Download the latest release from the [Releases](https://github.com/OWNER/BambuSwitcher/releases) page
+1. Download the latest release from the [Releases](https://github.com/jakergirard/BambuSwitcher/releases) page
 2. Move BambuSwitcher.app to your Applications folder
 3. Launch BambuSwitcher
 
@@ -26,14 +26,15 @@ A macOS application that allows you to easily manage and switch between differen
 ### Creating a New Configuration
 
 1. Set up Bambu Studio exactly how you want it (login, preferences, etc.)
-2. Open BambuSwitcher
-3. Click "Save Current Config"
-4. Enter a name for your configuration
-5. Click Save
+2. Close Bambu Studio
+3. Open BambuSwitcher
+4. Click "Save Current Config"
+5. Enter a name for your configuration
+6. Click Save
 
 ### Switching Configurations
 
-1. Open BambuSwitcher
+1. Open BambuSwitcher with Bambu Studio closed
 2. Select the configuration you want to use
 3. Click "Launch Bambu Studio"
 4. Bambu Studio will launch with the selected configuration
