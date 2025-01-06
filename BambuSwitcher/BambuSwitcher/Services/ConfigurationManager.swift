@@ -41,55 +41,94 @@ class ConfigurationManager: ObservableObject {
             throw ConfigError.appSupportNotFound
         }
         
+        // Kill any running Bambu processes first
+        let task = Process()
+        task.launchPath = "/usr/bin/pkill"
+        task.arguments = ["-f", "BambuStudio"]
+        try? task.run()
+        task.waitUntilExit()
+        
         // Clear Application Support
         let bambuStudioConfig = appSupport.appendingPathComponent("BambuStudio")
         if fileManager.fileExists(atPath: bambuStudioConfig.path) {
             try fileManager.removeItem(at: bambuStudioConfig)
         }
         
-        // Clear Preferences
+        // Clear all Preferences
         let preferencesPath = library.appendingPathComponent("Preferences/com.bambulab.bambu-studio.plist")
         if fileManager.fileExists(atPath: preferencesPath.path) {
             try fileManager.removeItem(at: preferencesPath)
         }
         
-        // Clear Cache
-        let cachePath = library.appendingPathComponent("Caches/com.bambulab.bambu-studio")
-        if fileManager.fileExists(atPath: cachePath.path) {
-            try fileManager.removeItem(at: cachePath)
+        // Clear all Caches
+        let cachePaths = [
+            library.appendingPathComponent("Caches/com.bambulab.bambu-studio"),
+            library.appendingPathComponent("Caches/BambuStudio"),
+            appSupport.appendingPathComponent("Caches/com.bambulab.bambu-studio"),
+            appSupport.appendingPathComponent("Caches/BambuStudio")
+        ]
+        
+        for cachePath in cachePaths {
+            if fileManager.fileExists(atPath: cachePath.path) {
+                try fileManager.removeItem(at: cachePath)
+            }
         }
         
         // Clear HTTPStorages (cookies and web storage)
-        let binaryCookiesPath = library.appendingPathComponent("HTTPStorages/com.bambulab.bambu-studio.binarycookies")
-        let httpStoragePath = library.appendingPathComponent("HTTPStorages/com.bambulab.bambu-studio")
-        if fileManager.fileExists(atPath: binaryCookiesPath.path) {
-            try fileManager.removeItem(at: binaryCookiesPath)
-        }
-        if fileManager.fileExists(atPath: httpStoragePath.path) {
-            try fileManager.removeItem(at: httpStoragePath)
+        let httpStoragePaths = [
+            library.appendingPathComponent("HTTPStorages/com.bambulab.bambu-studio.binarycookies"),
+            library.appendingPathComponent("HTTPStorages/com.bambulab.bambu-studio"),
+            library.appendingPathComponent("HTTPStorages/BambuStudio.binarycookies"),
+            library.appendingPathComponent("HTTPStorages/BambuStudio")
+        ]
+        
+        for storagePath in httpStoragePaths {
+            if fileManager.fileExists(atPath: storagePath.path) {
+                try fileManager.removeItem(at: storagePath)
+            }
         }
         
         // Clear WebKit data
-        let webKitPath = library.appendingPathComponent("WebKit/com.bambulab.bambu-studio")
-        if fileManager.fileExists(atPath: webKitPath.path) {
-            try fileManager.removeItem(at: webKitPath)
+        let webKitPaths = [
+            library.appendingPathComponent("WebKit/com.bambulab.bambu-studio"),
+            library.appendingPathComponent("WebKit/BambuStudio")
+        ]
+        
+        for webKitPath in webKitPaths {
+            if fileManager.fileExists(atPath: webKitPath.path) {
+                try fileManager.removeItem(at: webKitPath)
+            }
         }
         
         // Clear Saved Application State
-        let savedStatePath = library.appendingPathComponent("Saved Application State/com.bambulab.bambu-studio.savedState")
-        if fileManager.fileExists(atPath: savedStatePath.path) {
-            try fileManager.removeItem(at: savedStatePath)
+        let savedStatePaths = [
+            library.appendingPathComponent("Saved Application State/com.bambulab.bambu-studio.savedState"),
+            library.appendingPathComponent("Saved Application State/BambuStudio.savedState")
+        ]
+        
+        for statePath in savedStatePaths {
+            if fileManager.fileExists(atPath: statePath.path) {
+                try fileManager.removeItem(at: statePath)
+            }
         }
         
-        // Clear defaults
+        // Clear all defaults
         UserDefaults.standard.removePersistentDomain(forName: "com.bambulab.bambu-studio")
+        UserDefaults.standard.removePersistentDomain(forName: "BambuStudio")
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+        UserDefaults.standard.synchronize()
         
-        // Kill any running Bambu processes
-        let task = Process()
-        task.launchPath = "/usr/bin/pkill"
-        task.arguments = ["-f", "BambuStudio"]
-        try? task.run()
-        task.waitUntilExit()
+        // Additional cleanup
+        try? fileManager.removeItem(at: library.appendingPathComponent("Application Support/BambuStudio"))
+        try? fileManager.removeItem(at: library.appendingPathComponent("Preferences/BambuStudio.plist"))
+        
+        // Force sync to ensure all changes are written
+        let syncTask = Process()
+        syncTask.launchPath = "/usr/bin/sync"
+        try? syncTask.run()
+        syncTask.waitUntilExit()
     }
     
     private func copyPreferencesAndCache(from config: Configuration) throws {
@@ -163,40 +202,48 @@ class ConfigurationManager: ObservableObject {
         print("Switching to configuration: \(config.name)")
         print("Source: \(config.path.path)")
         
-        // Clear all existing data
-        try clearExistingData()
+        // Kill any running Bambu processes first
+        let killTask = Process()
+        killTask.launchPath = "/usr/bin/pkill"
+        killTask.arguments = ["-f", "BambuStudio"]
+        try? killTask.run()
+        killTask.waitUntilExit()
         
         guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             throw ConfigError.appSupportNotFound
         }
         
         let bambuStudioConfig = appSupport.appendingPathComponent("BambuStudio")
-        print("Target: \(bambuStudioConfig.path)")
         
-        // Create the target directory
+        // Remove existing BambuStudio directory if it exists
+        if fileManager.fileExists(atPath: bambuStudioConfig.path) {
+            try fileManager.removeItem(at: bambuStudioConfig)
+        }
+        
+        // Create fresh BambuStudio directory
         try fileManager.createDirectory(at: bambuStudioConfig, withIntermediateDirectories: true)
         
         // Copy all contents from source to target
         let enumerator = fileManager.enumerator(at: config.path, includingPropertiesForKeys: nil)
         while let sourcePath = enumerator?.nextObject() as? URL {
-            // Skip preferences and cache directories as they're handled separately
-            if sourcePath.lastPathComponent == "com.bambulab.bambu-studio.plist" ||
-               sourcePath.lastPathComponent == "Cache" {
-                continue
+            let relativePath = sourcePath.path.replacingOccurrences(of: config.path.path, with: "")
+            if !relativePath.isEmpty {
+                let targetPath = bambuStudioConfig.appendingPathComponent(relativePath)
+                
+                if sourcePath.hasDirectoryPath {
+                    try? fileManager.createDirectory(at: targetPath, withIntermediateDirectories: true)
+                } else {
+                    try? fileManager.removeItem(at: targetPath)
+                    try fileManager.copyItem(at: sourcePath, to: targetPath)
+                }
             }
-            
-            let relativePath = sourcePath.lastPathComponent
-            let targetPath = bambuStudioConfig.appendingPathComponent(relativePath)
-            
-            print("Copying: \(relativePath)")
-            if fileManager.fileExists(atPath: targetPath.path) {
-                try fileManager.removeItem(at: targetPath)
-            }
-            try fileManager.copyItem(at: sourcePath, to: targetPath)
         }
         
-        // Copy preferences and cache
-        try copyPreferencesAndCache(from: config)
+        // Force sync to ensure all changes are written
+        let syncTask = Process()
+        syncTask.launchPath = "/usr/bin/sync"
+        try? syncTask.run()
+        syncTask.waitUntilExit()
         
         print("Configuration switch completed successfully")
     }
@@ -205,15 +252,15 @@ class ConfigurationManager: ObservableObject {
         let bambuStudioURL = URL(fileURLWithPath: "/Applications/BambuStudio.app")
         print("Launching Bambu Studio from: \(bambuStudioURL.path)")
         
-        // Add a small delay to ensure cleanup is complete
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            NSWorkspace.shared.openApplication(at: bambuStudioURL,
-                                            configuration: NSWorkspace.OpenConfiguration()) { running, error in
-                if let error = error {
-                    print("Error launching Bambu Studio: \(error)")
-                } else {
-                    print("Bambu Studio launched successfully")
-                }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        
+        NSWorkspace.shared.openApplication(at: bambuStudioURL,
+                                         configuration: configuration) { running, error in
+            if let error = error {
+                print("Error launching Bambu Studio: \(error)")
+            } else {
+                print("Bambu Studio launched successfully")
             }
         }
     }
