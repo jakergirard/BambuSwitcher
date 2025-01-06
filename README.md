@@ -17,7 +17,7 @@ A macOS application that allows you to easily manage and switch between differen
 
 ## Installation
 
-1. Download the latest release from the [Releases](https://github.com/OWNER/BambuSwitcher/releases) page
+1. Download the latest release from the [Releases](https://github.com/jakergirard/BambuSwitcher/releases) page
 2. Move BambuSwitcher.app to your Applications folder
 3. Launch BambuSwitcher
 
